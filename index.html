@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<base target="_blank">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEO 任務中心</title>
+<style>
+/* 版面：頂部摘要與分類分頁，左側任務清單／匯入／文章池，右側單篇面板（手機為全螢幕）。每篇只顯示「現在該做的一件事」。 */
+:root {
+  --bg: #F6F7F9; --surface: #FFFFFF; --fg: #1E2530; --muted: #667085; --line: #E3E7ED;
+  --accent: #2F5D8A; --accent-soft: #E6EEF6; --on-accent: #FFFFFF;
+  --bad: #B42318; --bad-soft: #FDECEA; --warn: #9A5B00; --warn-soft: #FFF1D6;
+  --good: #1F7A4D; --good-soft: #E1F3EA; --idle: #667085; --idle-soft: #EDF0F4;
+  --font: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12161C; --surface: #1A2029; --fg: #E8ECF2; --muted: #99A3B3; --line: #2B3340;
+    --accent: #7DB0E3; --accent-soft: #223347; --on-accent: #0F1A26;
+    --bad: #F4938A; --bad-soft: #3A1F1D; --warn: #E8B45A; --warn-soft: #3A2D12;
+    --good: #66C79A; --good-soft: #173024; --idle: #99A3B3; --idle-soft: #252C37;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.6; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 16px; padding-bottom: 48px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a { color: var(--accent); }
+h1 { font-size: 1.25rem; margin: 0; line-height: 1.4; }
+h2 { font-size: 1rem; margin: 0; line-height: 1.4; }
+h3 { font-size: .9rem; margin: 0; line-height: 1.4; }
+.hint { color: var(--muted); font-size: .8rem; }
+
+.head { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.in { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 0; width: 100%; }
+.tools .in { width: auto; }
+.in:focus { border-color: var(--accent); }
+textarea.in { resize: vertical; min-height: 64px; }
+.btn { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+.btn.primary:hover { opacity: .92; color: var(--on-accent); }
+.btn.danger { border-color: var(--warn); color: var(--warn); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.banner { border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: .9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.banner.ok { background: var(--good-soft); color: var(--good); }
+.banner.err { background: var(--bad-soft); color: var(--bad); }
+
+.summary { font-size: .95rem; margin: 0 0 12px; }
+.summary b { font-variant-numeric: tabular-nums; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px; }
+.tab { flex: 0 0 auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; text-align: left; min-width: 96px; }
+.tab .n { display: block; font-size: 1.35rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tab .l { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.tab[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.tab[aria-selected="true"] .l { color: var(--accent); font-weight: 700; }
+.tab.urgent .n { color: var(--bad); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+@media (max-width: 960px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.list-head { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 170px 100px; gap: 6px 14px; align-items: center; padding: 11px 14px; border-top: 1px solid var(--line); cursor: pointer; }
+.row:first-of-type { border-top: 0; }
+.row:hover, .row[aria-selected="true"] { background: var(--accent-soft); }
+.row[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--accent); }
+.t { font-weight: 500; overflow-wrap: anywhere; }
+.sub { color: var(--muted); font-size: .78rem; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.next { font-size: .85rem; overflow-wrap: anywhere; }
+.due { font-size: .8rem; font-variant-numeric: tabular-nums; }
+.due.bad { color: var(--bad); font-weight: 700; }
+.due.warn { color: var(--warn); font-weight: 700; }
+@media (max-width: 640px) { .row { grid-template-columns: minmax(0, 1fr); } }
+.chip { font-size: .72rem; padding: 0 7px; border-radius: 99px; background: var(--idle-soft); color: var(--idle); white-space: nowrap; }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.good { background: var(--good-soft); color: var(--good); }
+.empty { padding: 28px 16px; color: var(--muted); text-align: center; }
+.more { display: block; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); padding: 10px; cursor: pointer; color: var(--accent); }
+.body { padding: 14px; display: grid; gap: 14px; }
+
+.panel { position: sticky; top: 12px; padding: 16px; display: grid; gap: 14px; }
+.panel .close { display: none; justify-self: end; }
+@media (max-width: 960px) {
+  .panel { position: fixed; inset: 0; z-index: 10; border-radius: 0; overflow-y: auto; }
+  .panel .close { display: inline-block; }
+}
+.panel[hidden] { display: none !important; }
+.kv { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 4px 10px; font-size: .85rem; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.tl { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.tl li { border-left: 2px solid var(--line); padding-left: 12px; font-size: .85rem; }
+.tl li.cur { border-left-color: var(--accent); }
+.tl .v { font-weight: 700; margin-right: 6px; }
+.actions { display: grid; gap: 8px; }
+.skel { padding: 28px 16px; color: var(--muted); text-align: center; }
+.links { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .85rem; }
+.form { display: grid; gap: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.form label { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); }
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 22px 14px; text-align: center; color: var(--muted); }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+table.m { border-collapse: collapse; width: 100%; font-size: .85rem; font-variant-numeric: tabular-nums; }
+table.m th, table.m td { padding: 6px 8px; border-top: 1px solid var(--line); text-align: right; }
+table.m th:first-child, table.m td:first-child { text-align: left; }
+table.m thead th { color: var(--muted); font-weight: 500; border-top: 0; }
+.up { color: var(--good); } .down { color: var(--bad); }
+.files { display: flex; flex-wrap: wrap; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>SEO 任務中心</h1>
+      <div class="hint" id="who">載入中…</div>
+    </div>
+    <div class="tools">
+      <label class="hint" style="display:flex;align-items:center;gap:6px">負責人
+        <select class="in" id="person"><option value="">全部</option></select>
+      </label>
+      <input class="in" id="q" type="search" placeholder="搜尋標題或文章 ID" aria-label="搜尋標題或文章 ID">
+      <button class="btn" id="reload" type="button">重新整理</button>
+    </div>
+  </div>
+
+  <div id="banner" class="banner" hidden role="status"></div>
+  <p class="summary" id="summary"></p>
+  <div class="tabs" id="tabs" role="tablist"></div>
+
+  <div class="cols">
+    <section class="card" aria-live="polite">
+      <div class="list-head">
+        <h2 id="list-h">載入中…</h2>
+        <span class="hint" id="list-d"></span>
+      </div>
+      <div id="rows"><div class="skel">正在讀取任務清單，請稍候…</div></div>
+    </section>
+    <aside class="card panel" id="panel" hidden></aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  var safeUrl = function (u) { return /^https?:\/\//i.test(u || '') ? u : ''; };
+  var link = function (u, t) { return safeUrl(u) ? '<a href="' + esc(safeUrl(u)) + '" target="_blank" rel="noopener">' + esc(t) + '</a>' : ''; };
+  var num = function (n) { return n === '' || n == null ? '—' : Number(n).toLocaleString('en-US'); };
+  var pct = function (n) { return n === '' || n == null ? '—' : (n * 100).toFixed(2) + '%'; };
+  var chg = function (n) { return n == null ? '—' : '<span class="' + (n >= 0 ? 'up' : 'down') + '">' + (n >= 0 ? '+' : '−') + Math.abs(n * 100).toFixed(1) + '%</span>'; };
+
+  var DESC = {
+    '建立異常': '工單沒有建立完成，再按一次建立工單即可重試。',
+    '待做結論': '成效已匯入，請記錄結論：結案、持續觀察或建立下一批次。',
+    '待補數據': '已過追蹤日。到「匯入 GSC」上傳這篇的 GSC 匯出檔。',
+    '待上稿': '工單進行中。完成 Step 1–3 並上稿後，按「標記已上稿」。',
+    '需二修': '上一批結果不理想，請建立下一批次。',
+    '等待中': '還沒到追蹤日，或已選「持續觀察」等下次觀察日。',
+    '舊積壓': '已過追蹤日很久的舊資料。之後匯出 GSC 資料再補，不占用日常清單。',
+    '匯入 GSC': '上傳 GSC 匯出的「圖表.csv」與「篩選器.csv」，系統自動算出優化前後 28 天。',
+    '文章池': '還沒建立過工單的文章。找到值得優化的，建立 V1 工單。'
+  };
+  var ORDER = ['待做結論', '待補數據', '待上稿', '需二修', '等待中', '建立異常', '舊積壓', '匯入 GSC', '文章池'];
+
+  var state = {
+    data: null, tab: '待補數據', selected: null, article: null, limit: 30, busy: false,
+    pool: null, poolQ: '', form: '', opts: null,
+    gsc: { files: [], payload: null, preview: null, articleId: '', batch: '', busy: false, error: '' }
+  };
+
+  function run(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      if (!window.google || !google.script || !google.script.run) { reject(new Error('請從網頁應用程式的網址開啟。')); return; }
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) { reject(new Error((e && e.message) || String(e))); })[fn].apply(google.script.run, args);
+    }).then(function (res) {
+      if (!res || res.ok === false) throw new Error((res && res.message) || '發生未知錯誤。');
+      return res.data;
+    });
+  }
+
+  function banner(kind, msg) {
+    var b = $('#banner');
+    if (!msg) { b.hidden = true; return; }
+    b.className = 'banner ' + kind;
+    b.textContent = msg;
+    b.hidden = false;
+  }
+
+  /* ---------- 載入 ---------- */
+  function load(keepSelection) {
+    $('#reload').disabled = true;
+    return run('webGetTasks').then(function (d) {
+      state.data = d;
+      var sel = $('#person'), cur = sel.value, people = {};
+      d.rows.forEach(function (r) { if (r.who) people[r.who] = 1; });
+      sel.innerHTML = '<option value="">全部</option>' + Object.keys(people).sort().map(function (n) { return '<option>' + esc(n) + '</option>'; }).join('') + '<option value="__none">未指派（舊資料）</option>';
+      sel.value = (cur === '__none' || people[cur]) ? cur : '';
+      $('#who').textContent = '目前登入：' + d.user + '｜資料更新：' + d.updatedAt;
+      if (!keepSelection) { state.selected = null; state.article = null; }
+      render();
+      if (keepSelection && state.selected) openArticle(state.selected, true);
+    }).catch(function (e) {
+      $('#rows').innerHTML = '<div class="empty">讀取失敗。</div>';
+      banner('err', e.message);
+    }).then(function () { $('#reload').disabled = false; });
+  }
+
+  function visible() {
+    var w = $('#person').value, q = $('#q').value.trim().toLowerCase();
+    return (state.data ? state.data.rows : []).filter(function (r) {
+      if (w === '__none' && r.who) return false;
+      if (w && w !== '__none' && r.who !== w) return false;
+      if (q && (r.title + ' ' + r.id).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+  }
+
+  /* ---------- 畫面 ---------- */
+  function renderTabs() {
+    var d = state.data; if (!d) return;
+    var c = {}; visible().forEach(function (r) { c[r.bucket] = (c[r.bucket] || 0) + 1; });
+    $('#tabs').innerHTML = ORDER.map(function (k) {
+      var n = k === '文章池' ? '搜尋' : (k === '匯入 GSC' ? '上傳' : (c[k] || 0));
+      return '<button class="tab' + ((k === '待補數據' || k === '建立異常') && c[k] ? ' urgent' : '') + '" role="tab" data-k="' + k + '" aria-selected="' + (state.tab === k) + '"><span class="n">' + n + '</span><span class="l">' + k + '</span></button>';
+    }).join('');
+    var gsc = visible().filter(function (r) { return r.bucket === '待補數據'; });
+    $('#summary').innerHTML = '<b>' + (c['待做結論'] || 0) + '</b> 篇等你做結論，<b>' + gsc.length + '</b> 篇待補 GSC 數據，<b>' + (c['待上稿'] || 0) + '</b> 篇待上稿' +
+      ((c['舊積壓'] || 0) ? '（另有 ' + c['舊積壓'] + ' 篇舊積壓已移到「舊積壓」）' : '') + '。' +
+      ((c['建立異常'] || 0) ? ' <b>' + c['建立異常'] + '</b> 篇工單建立異常，請優先處理。' : '');
+  }
+
+  function renderList() {
+    $('#list-h').textContent = state.tab;
+    $('#list-d').textContent = DESC[state.tab] || '';
+    var el = $('#rows');
+
+    if (state.tab === '文章池') { renderPool(); return; }
+    if (state.tab === '匯入 GSC') { renderGsc(); return; }
+
+    var list = visible().filter(function (r) { return r.bucket === state.tab; });
+    if (!list.length) { el.innerHTML = '<div class="empty">這個分類目前沒有文章。</div>'; return; }
+    var shown = list.slice(0, state.limit);
+    el.innerHTML = shown.map(function (r) {
+      var lvl = r.overdue != null ? (r.overdue > 28 ? 'bad' : 'warn') : '';
+      var dueTxt = r.overdue != null ? '已過 ' + r.overdue + ' 天' : (r.bucket === '等待中' ? r.due : '');
+      return '<div class="row" role="button" tabindex="0" data-id="' + esc(r.id) + '" aria-selected="' + (state.selected === r.id) + '">' +
+        '<div><div class="t">' + esc(r.title || r.id) + '</div><div class="sub"><span>' + esc(r.id) + '</span><span>' + esc(r.batch) + '</span>' + (r.who ? '<span>' + esc(r.who) + '</span>' : '') + '</div></div>' +
+        '<div class="next">' + esc(r.next) + '</div><div class="due ' + lvl + '">' + esc(dueTxt) + '</div></div>';
+    }).join('') + (list.length > shown.length ? '<button class="more" id="more">再顯示 30 篇（還有 ' + (list.length - shown.length) + ' 篇）</button>' : '');
+  }
+
+  function renderPool() {
+    var el = $('#rows');
+    var box = '<div style="padding:12px 14px;border-bottom:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap">' +
+      '<input class="in" id="poolq" type="search" placeholder="搜尋標題、文章 ID、業態或關鍵字" style="flex:1;min-width:12rem" value="' + esc(state.poolQ) + '">' +
+      '<button class="btn" id="poolgo" type="button">搜尋</button></div>';
+    if (!state.pool) { el.innerHTML = box + '<div class="empty">輸入關鍵字後按搜尋，或直接按搜尋列出優先文章。</div>'; return; }
+    if (!state.pool.rows.length) { el.innerHTML = box + '<div class="empty">沒有符合的文章。</div>'; return; }
+    el.innerHTML = box + state.pool.rows.map(function (r) {
+      return '<div class="row" role="button" tabindex="0" data-id="' + esc(r.id) + '" aria-selected="' + (state.selected === r.id) + '">' +
+        '<div><div class="t">' + esc(r.title || r.id) + '</div><div class="sub"><span>' + esc(r.id) + '</span><span>' + esc(r.biz) + '</span>' + (r.priority ? '<span class="chip warn">優先</span>' : '') + '</div></div>' +
+        '<div class="next">' + esc(r.status || '待評估') + '</div><div class="due"></div></div>';
+    }).join('') + '<div class="hint" style="padding:10px 14px">共 ' + state.pool.total + ' 篇，目前顯示前 ' + state.pool.shown + ' 篇。縮小搜尋範圍可以看到更多。</div>';
+  }
+
+  /* ---------- 匯入 GSC ---------- */
+  function parseCsv(text) {
+    text = String(text || '').replace(/^﻿/, '');
+    var rows = [], row = [], cur = '', q = false, i, c;
+    for (i = 0; i < text.length; i++) {
+      c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c;
+      } else if (c === '"') q = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+      else cur += c;
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    return rows.filter(function (r) { return r.some(function (x) { return String(x).trim(); }); });
+  }
+
+  function classifyFile(rows) {
+    var h = String((rows[0] || [])[0] || '').trim().toLowerCase();
+    if (h === '日期' || h === 'date') return 'daily';
+    if (h === '篩選器' || h === 'filter' || h === 'filters') return 'filters';
+    if (h === '熱門查詢項目' || h === 'top queries' || h === 'queries') return 'queries';
+    return 'other';
+  }
+  var KIND_LABEL = { daily: '圖表（每日數據）', filters: '篩選器（文章網址）', queries: '查詢（參考）', other: '' };
+
+  function readFiles(list) {
+    var files = Array.prototype.slice.call(list || []);
+    if (!files.length) return;
+    var g = state.gsc;
+    g.error = ''; g.preview = null;
+    Promise.all(files.map(function (f) {
+      return new Promise(function (resolve) {
+        var fr = new FileReader();
+        fr.onload = function () { resolve({ name: f.name, rows: parseCsv(fr.result) }); };
+        fr.onerror = function () { resolve({ name: f.name, rows: [] }); };
+        fr.readAsText(f, 'UTF-8');
+      });
+    })).then(function (parsed) {
+      var payload = g.payload || { daily: null, filters: null, queries: null };
+      g.files = g.files.filter(function (x) { return !parsed.some(function (p) { return p.name === x.name; }); });
+      parsed.forEach(function (p) {
+        var kind = classifyFile(p.rows);
+        g.files.push({ name: p.name, kind: kind });
+        if (kind !== 'other') payload[kind] = p.rows;
+      });
+      g.payload = payload;
+      if (!payload.daily) g.error = '還沒有選到「圖表.csv」。請在 GSC 匯出時選「下載資料」，並一起選取檔案。';
+      renderGsc();
+      if (payload.daily) previewGsc();
+    });
+  }
+
+  function previewGsc() {
+    var g = state.gsc;
+    if (!g.payload || !g.payload.daily) return;
+    g.busy = true; g.error = ''; renderGsc();
+    var p = { daily: g.payload.daily, filters: g.payload.filters || [], queries: g.payload.queries || [], articleId: g.articleId, batch: g.batch };
+    run('webGscPreview', p).then(function (d) {
+      g.preview = d; g.busy = false;
+      if (!g.batch) g.batch = d.batch;
+      if (!g.articleId) g.articleId = d.article.id;
+      renderGsc();
+    }).catch(function (e) { g.busy = false; g.preview = null; g.error = e.message; renderGsc(); });
+  }
+
+  function renderGsc() {
+    var g = state.gsc, el = $('#rows'), pv = g.preview;
+    var html = '<div class="body">' +
+      '<div class="drop" id="drop"><div>把 GSC 匯出的 CSV 檔拖到這裡，或</div>' +
+      '<label class="btn" style="display:inline-block;margin-top:8px;cursor:pointer">選擇檔案<input type="file" id="gscfiles" accept=".csv,text/csv" multiple hidden></label>' +
+      '<div class="hint" style="margin-top:8px">需要：圖表.csv（每日數據）＋篩選器.csv（用來判斷是哪一篇）。查詢.csv 可選，只供參考。<br>匯出日期請涵蓋「發布日前 28 天」到「發布日後 28 天」。</div></div>';
+
+    if (g.files.length) {
+      html += '<div class="files">' + g.files.map(function (f) {
+        return '<span class="chip ' + (f.kind === 'other' ? '' : 'good') + '">' + esc(f.name) + (f.kind !== 'other' ? '：' + KIND_LABEL[f.kind] : '：不需要，已略過') + '</span>';
+      }).join('') + '<button class="btn" id="gscreset" type="button" style="padding:2px 10px">清除</button></div>';
+    }
+
+    if (g.error) html += '<div class="banner err">' + esc(g.error) + '</div>';
+    if (g.busy) html += '<div class="skel">計算中…</div>';
+
+    if (pv) {
+      var cov = pv.coverage;
+      html += '<div class="form"><h3>' + esc(pv.article.title || pv.article.id) + '</h3><div class="hint">' + esc(pv.article.id) + '</div>' +
+        '<label>要寫入的批次' +
+        '<select class="in" id="gscbatch">' + pv.batches.map(function (b) { return '<option value="' + esc(b.batch) + '"' + (b.batch === pv.batch ? ' selected' : '') + '>' + esc(b.batch) + '（發布日 ' + esc(b.pub) + '，' + esc(b.status) + '）</option>'; }).join('') + '</select></label>' +
+        '<div class="hint">優化前：' + esc(pv.windows.before) + '　優化後：' + esc(pv.windows.after) + '</div>' +
+        '<table class="m"><thead><tr><th></th><th>優化前 28 天</th><th>優化後 28 天</th><th>變化</th></tr></thead><tbody>' +
+        '<tr><td>點擊</td><td>' + num(pv.before.clicks) + '</td><td>' + num(pv.after.clicks) + '</td><td>' + chg(pv.changes.clicksPct) + '</td></tr>' +
+        '<tr><td>曝光</td><td>' + num(pv.before.impressions) + '</td><td>' + num(pv.after.impressions) + '</td><td>' + chg(pv.changes.impressionsPct) + '</td></tr>' +
+        '<tr><td>CTR</td><td>' + pct(pv.before.ctr) + '</td><td>' + pct(pv.after.ctr) + '</td><td>' + (pv.changes.ctrPoints == null ? '—' : '<span class="' + (pv.changes.ctrPoints >= 0 ? 'up' : 'down') + '">' + (pv.changes.ctrPoints >= 0 ? '+' : '−') + Math.abs(pv.changes.ctrPoints).toFixed(2) + ' 點</span>') + '</td></tr>' +
+        '<tr><td>平均排名</td><td>' + num(pv.before.position) + '</td><td>' + num(pv.after.position) + '</td><td>' + (pv.changes.rankImprove == null ? '—' : '<span class="' + (pv.changes.rankImprove >= 0 ? 'up' : 'down') + '">' + (pv.changes.rankImprove >= 0 ? '進步 ' : '退步 ') + Math.abs(pv.changes.rankImprove).toFixed(2) + '</span>') + '</td></tr>' +
+        '</tbody></table>';
+
+      if (cov.message) html += '<div class="banner err" style="margin:0">' + esc(cov.message) + '<br>你匯出的檔案涵蓋 ' + esc(cov.dataRange) + '。</div>';
+      if (!cov.afterOk && cov.canApplyPartial) html += '<label class="hint" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="gscpartial"> 觀察期還沒滿 28 天，先寫入目前數據（之後可再匯入覆蓋）</label>';
+
+      var ready = cov.beforeOk && cov.afterOk;
+      html += '<button class="btn primary" id="gscapply" type="button"' + ((ready || (!cov.afterOk && cov.canApplyPartial)) && !g.busy ? '' : ' disabled') + '>寫入 03 成效紀錄</button>';
+
+      if (pv.queries && pv.queries.length) {
+        html += '<details><summary class="hint" style="cursor:pointer">匯出區間內的熱門查詢（參考，前 10 筆）</summary><table class="m"><thead><tr><th>查詢</th><th>點擊</th><th>曝光</th><th>排名</th></tr></thead><tbody>' +
+          pv.queries.map(function (q) { return '<tr><td>' + esc(q.query) + '</td><td>' + num(q.clicks) + '</td><td>' + num(q.impressions) + '</td><td>' + num(q.position) + '</td></tr>'; }).join('') + '</tbody></table></details>';
+      }
+      html += '</div>';
+    } else if (g.payload && g.payload.daily && !g.busy && g.error) {
+      html += '<div class="form"><label>指定文章 ID（找不到對應網址時使用）<input class="in" id="gscid" value="' + esc(g.articleId) + '" placeholder="例如 WD_RING_002"></label>' +
+        '<button class="btn" id="gscretry" type="button">重新計算</button></div>';
+    }
+
+    el.innerHTML = html + '</div>';
+    var dz = $('#drop');
+    if (dz) {
+      ['dragenter', 'dragover'].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('over'); }); });
+      ['dragleave', 'drop'].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('over'); }); });
+      dz.addEventListener('drop', function (e) { readFiles(e.dataTransfer && e.dataTransfer.files); });
+    }
+  }
+
+  function applyGsc() {
+    var g = state.gsc; if (!g.preview || g.busy) return;
+    var partial = $('#gscpartial'); partial = !!(partial && partial.checked);
+    g.busy = true; banner('', ''); renderGsc();
+    var p = { daily: g.payload.daily, filters: g.payload.filters || [], articleId: g.articleId, batch: g.batch, allowPartial: partial };
+    run('webGscApply', p).then(function (res) {
+      banner('ok', res.message);
+      state.gsc = { files: [], payload: null, preview: null, articleId: '', batch: '', busy: false, error: '' };
+      return load(false).then(function () { state.tab = '待做結論'; render(); });
+    }).catch(function (e) { g.busy = false; banner('err', e.message); renderGsc(); });
+  }
+
+  function render() { renderTabs(); renderList(); renderPanel(); }
+
+  /* ---------- 單篇面板 ---------- */
+  function renderPanel() {
+    var p = $('#panel'), a = state.article;
+    if (!a) { p.hidden = true; return; }
+    p.hidden = false;
+
+    var acts = (a.actions || []).map(function (x) {
+      return '<button class="btn ' + (x.kind === 'primary' ? 'primary' : (x.key === 'pause' ? 'danger' : '')) + '" data-act="' + x.key + '"' + (state.busy ? ' disabled' : '') + '>' + esc(x.label) + '</button>';
+    }).join('');
+
+    var form = '';
+    if (state.form === 'publish') {
+      form = '<div class="form"><h3>標記已上稿</h3><div class="hint">發布日會記為今天。以下兩欄可以不填，之後到 02 補也行。</div>' +
+        '<label>修改紀錄<textarea class="in" id="f-log" placeholder="例如：優化 H1、H2、Meta 描述"></textarea></label>' +
+        '<label>已用內鏈<textarea class="in" id="f-links" placeholder="例如：/婚戒推薦、/求婚戒指"></textarea></label>' +
+        '<div style="display:flex;gap:8px"><button class="btn primary" id="f-pub-ok"' + (state.busy ? ' disabled' : '') + '>確定標記已上稿</button><button class="btn" id="f-cancel">取消</button></div></div>';
+    } else if (a.needConclusion) {
+      var o = state.opts || { judges: [], actions: [] };
+      form = '<div class="form"><h3>記錄結論</h3>' +
+        '<label>編輯判斷<select class="in" id="f-judge"><option value="">請選擇</option>' + o.judges.map(function (x) { return '<option>' + esc(x) + '</option>'; }).join('') + '</select></label>' +
+        '<label>下一步動作<select class="in" id="f-action"><option value="">請選擇</option>' + o.actions.map(function (x) { return '<option>' + esc(x) + '</option>'; }).join('') + '</select></label>' +
+        '<div class="hint" id="f-effect">持續觀察：維持待追蹤並設下次觀察日。暫不修改：結案。其他動作：改為「需二修」，接著建立下一批次。</div>' +
+        '<label>觀察心得（選填）<textarea class="in" id="f-note" placeholder="例如：點擊上升，但排名略退，先觀察"></textarea></label>' +
+        '<button class="btn primary" id="f-concl-ok"' + (state.busy ? ' disabled' : '') + '>儲存結論</button></div>';
+    }
+
+    var importBtn = a.canImport ? '<button class="btn primary" id="goimport">到「匯入 GSC」上傳這篇的數據</button>' : '';
+
+    var perf = (a.perf || []).map(function (x) {
+      return '<li><b>' + esc(x.stage || '追蹤') + '</b> ' + (x.batch ? '<span class="chip">' + esc(x.batch) + '</span> ' : '') +
+        (x.hasData ? '<span class="chip good">已填數據</span> ' : '<span class="chip warn">未填數據</span> ') +
+        (x.sys ? '<span class="chip">' + esc(x.sys) + '</span> ' : '') + (x.judge ? '<span class="chip">判斷：' + esc(x.judge) + '</span> ' : '') +
+        (x.nextObs ? '<span class="chip">下次觀察 ' + esc(x.nextObs) + '</span> ' : '') + link(x.rowLink, '開啟 03 這列') + '</li>';
+    }).join('');
+
+    p.innerHTML = '<button class="btn close" id="x">關閉</button>' +
+      '<div><h2>' + esc(a.title || a.id) + '</h2><div class="hint">' + esc(a.id) + '｜' + esc(a.biz) + (a.priority ? '｜優先' : '') + '</div>' +
+      '<div class="links">' + link(a.url, '開啟文章') + '</div></div>' +
+      '<div class="actions"><div><span class="hint">現在狀況</span><div>' + esc(a.bucket) + '：' + esc(a.next) + '</div>' + (a.hint ? '<div class="hint">' + esc(a.hint) + '</div>' : '') + '</div>' +
+      importBtn + (state.form ? '' : acts) + form + (!acts && !form && !importBtn ? '<div class="hint">目前沒有需要按的按鈕。</div>' : '') + '<div id="acthint" class="hint"></div></div>' +
+      '<dl class="kv"><dt>11 文章狀態</dt><dd>' + esc(a.status11 || '—') + '</dd>' +
+      '<dt>目前批次</dt><dd>' + esc(a.latestBatch || '尚無') + '</dd></dl>' +
+      '<div><h2 style="margin-bottom:8px">歷史版本</h2>' + (a.batches.length ? '<ul class="tl">' + a.batches.map(function (b, i) {
+        return '<li class="' + (i === a.batches.length - 1 ? 'cur' : '') + '"><span class="v">' + esc(b.batch) + '</span><span class="chip">' + esc(b.status) + '</span>' + (b.createState && b.createState !== '已建立' ? ' <span class="chip bad">' + esc(b.createState) + '</span>' : '') + '<br>' +
+          '上稿 ' + esc(b.pub || '—') + '｜追蹤日 ' + esc(b.due || '—') + (b.who ? '｜' + esc(b.who) : '') +
+          '<br>' + link(b.orderUrl, '開啟工單') + (b.orderUrl ? '　' : '') + link(b.rowLink, '開啟 02 這列') +
+          (b.note ? '<br><span class="hint">' + esc(b.note) + '</span>' : '') + '</li>';
+      }).join('') + '</ul>' : '<div class="hint">還沒有任何優化批次。</div>') + '</div>' +
+      (perf ? '<div><h2 style="margin-bottom:8px">成效追蹤（03）</h2><ul class="tl">' + perf + '</ul></div>' : '') +
+      '<div class="links">' + link(state.data && state.data.links.perf, '開啟 03 成效紀錄區') + link(state.data && state.data.links.log, '開啟 02 優化紀錄表') + '</div>';
+  }
+
+  /* ---------- 互動 ---------- */
+  function openArticle(id, silent) {
+    state.selected = id; state.form = '';
+    if (!silent) { renderList(); }
+    return run('webGetArticle', id).then(function (a) {
+      state.article = a;
+      if (a.needConclusion && !state.opts) {
+        return run('webGetConclusionOptions').then(function (o) { state.opts = o; }).catch(function () { state.opts = { judges: [], actions: [] }; });
+      }
+    }).then(function () { renderPanel(); })
+      .catch(function (e) { banner('err', e.message); });
+  }
+
+  function busyRun(fn, args, wait, onOk) {
+    if (state.busy) return;
+    state.busy = true; renderPanel();
+    var h = $('#acthint'); if (h) h.textContent = wait || '處理中…';
+    banner('', '');
+    run.apply(null, [fn].concat(args)).then(function (res) {
+      banner('ok', res.message || '完成');
+      state.busy = false; state.form = '';
+      if (onOk) onOk(res);
+      return load(true);
+    }).catch(function (e) { state.busy = false; banner('err', e.message); renderPanel(); });
+  }
+
+  function doAction(key) {
+    var a = state.article; if (!a || state.busy) return;
+    if (key === 'markPublished') { state.form = 'publish'; renderPanel(); return; }
+    if (key === 'createNext') return busyRun('webCreateWorkOrder', [a.id], '正在建立工單並複製 Google Doc，約需 10 秒，請不要關閉頁面…', function () { state.pool = null; });
+    if (key === 'complete') return busyRun('webSetStatus', [a.id, a.latestBatch, '已完成']);
+    if (key === 'pause') return busyRun('webSetStatus', [a.id, a.latestBatch, '暫停']);
+  }
+
+  function twoStep(btn, key) {
+    // 避免誤按：第一次點擊變成「再按一次確認」，3 秒內再按才執行。
+    if (key === 'markPublished') { doAction(key); return; }
+    if (btn.dataset.arm === '1') { doAction(key); return; }
+    btn.dataset.arm = '1';
+    var old = btn.textContent;
+    btn.textContent = '再按一次確認：' + old;
+    setTimeout(function () { if (btn.isConnected) { btn.dataset.arm = ''; btn.textContent = old; } }, 3000);
+  }
+
+  $('#tabs').addEventListener('click', function (e) { var b = e.target.closest('.tab'); if (!b) return; state.tab = b.dataset.k; state.limit = 30; state.selected = null; state.article = null; state.form = ''; render(); });
+  $('#rows').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.id === 'more') { state.limit += 30; renderList(); return; }
+    if (t.id === 'poolgo') { searchPool(); return; }
+    if (t.id === 'gscapply') { applyGsc(); return; }
+    if (t.id === 'gscreset') { state.gsc = { files: [], payload: null, preview: null, articleId: '', batch: '', busy: false, error: '' }; renderGsc(); return; }
+    if (t.id === 'gscretry') { state.gsc.articleId = ($('#gscid') || {}).value || ''; previewGsc(); return; }
+    var row = t.closest('.row'); if (!row) return;
+    openArticle(row.dataset.id);
+  });
+  $('#rows').addEventListener('change', function (e) {
+    if (e.target.id === 'gscfiles') { readFiles(e.target.files); e.target.value = ''; }
+    if (e.target.id === 'gscbatch') { state.gsc.batch = e.target.value; previewGsc(); }
+  });
+  $('#rows').addEventListener('keydown', function (e) {
+    if (e.target.id === 'poolq' && e.key === 'Enter') { searchPool(); return; }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('row')) { e.preventDefault(); openArticle(e.target.dataset.id); }
+  });
+  $('#panel').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.id === 'x') { state.selected = null; state.article = null; state.form = ''; render(); return; }
+    if (t.id === 'f-cancel') { state.form = ''; renderPanel(); return; }
+    if (t.id === 'goimport') {
+      state.gsc = { files: [], payload: null, preview: null, articleId: state.article.id, batch: state.article.latestBatch || '', busy: false, error: '' };
+      state.tab = '匯入 GSC'; state.selected = null; state.article = null; render(); return;
+    }
+    if (t.id === 'f-pub-ok') {
+      var a = state.article;
+      busyRun('webMarkPublished', [a.id, a.latestBatch, { changeLog: ($('#f-log') || {}).value || '', usedLinks: ($('#f-links') || {}).value || '' }], '處理中…');
+      return;
+    }
+    if (t.id === 'f-concl-ok') {
+      var j = ($('#f-judge') || {}).value, ac = ($('#f-action') || {}).value, a2 = state.article;
+      if (!j || !ac) { banner('err', '請選擇「編輯判斷」與「下一步動作」。'); return; }
+      busyRun('webSaveConclusion', [a2.id, a2.latestBatch, j, ac, ($('#f-note') || {}).value || ''], '處理中…');
+      return;
+    }
+    var b = t.closest('[data-act]'); if (b) twoStep(b, b.dataset.act);
+  });
+  $('#person').addEventListener('change', function () { state.limit = 30; render(); });
+  $('#q').addEventListener('input', function () { state.limit = 30; renderTabs(); renderList(); });
+  $('#reload').addEventListener('click', function () { banner('', ''); load(false); });
+
+  function searchPool() {
+    var q = ($('#poolq') || {}).value || '';
+    state.poolQ = q;
+    run('webSearchPool', q).then(function (d) { state.pool = d; renderList(); })
+      .catch(function (e) { banner('err', e.message); });
+  }
+
+  load(false);
+})();
+</script>
+</body>
+</html>
