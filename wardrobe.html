@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>衣櫥管理</title>
+<style>
+:root { --bg:#F6F7F9; --surface:#FFFFFF; --fg:#1E2530; --muted:#667085; --line:#E3E7ED; --accent:#2F5D8A; --accent-soft:#E6EEF6; --on-accent:#FFFFFF; --bad:#B42318; --good:#1F7A4D; --good-soft:#E1F3EA; --warn:#9A5B00; --warn-soft:#FFF1D6; --idle:#667085; --idle-soft:#EDF0F4; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12161C; --surface:#1A2029; --fg:#E8ECF2; --muted:#99A3B3; --line:#2B3340; --accent:#7DB0E3; --accent-soft:#223347; --on-accent:#0F1A26; --bad:#F4938A; --good:#66C79A; --good-soft:#173024; --warn:#E8B45A; --warn-soft:#3A2D12; --idle:#99A3B3; --idle-soft:#252C37; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.6 "Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif; }
+.wrap { max-width:1100px; margin:0 auto; padding:16px 16px 48px; }
+h1 { font-size:1.25rem; margin:0; } h2 { font-size:1rem; margin:0 0 10px; }
+button, input, select, textarea { font:inherit; color:inherit; }
+.in { background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:6px 10px; width:100%; min-width:0; }
+textarea.in { min-height:60px; resize:vertical; }
+.btn { background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:7px 12px; cursor:pointer; }
+.btn:hover { border-color:var(--accent); color:var(--accent); }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:500; }
+.btn.primary:hover { opacity:.92; color:var(--on-accent); }
+.btn.danger { color:var(--bad); border-color:var(--bad); }
+.btn[disabled] { opacity:.5; cursor:not-allowed; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:10px; }
+.head { display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.hint { color:var(--muted); font-size:.8rem; }
+.login { max-width:380px; margin:48px auto; padding:20px; display:grid; gap:12px; }
+.login label, .form label { display:grid; gap:4px; font-size:.8rem; color:var(--muted); }
+.msg { font-size:.85rem; min-height:1.2em; overflow-wrap:anywhere; } .msg.err { color:var(--bad); } .msg.ok { color:var(--good); }
+.stats { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.stat { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px 14px; min-width:110px; }
+.stat b { display:block; font-size:1.3rem; font-variant-numeric:tabular-nums; } .stat span { font-size:.78rem; color:var(--muted); }
+.filters { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+@media (max-width:700px) { .filters { grid-template-columns:1fr 1fr; } .filters input[type=search] { grid-column:1/-1; } }
+.row { display:grid; grid-template-columns:70px minmax(0,1fr) 120px 90px 90px; gap:6px 12px; align-items:center; padding:10px 14px; border-top:1px solid var(--line); cursor:pointer; }
+.row:first-child { border-top:0; } .row:hover { background:var(--accent-soft); }
+.row .t { font-weight:500; overflow-wrap:anywhere; } .row .sub { color:var(--muted); font-size:.78rem; }
+.num { text-align:right; font-variant-numeric:tabular-nums; }
+@media (max-width:700px) { .row { grid-template-columns:minmax(0,1fr) auto; } .row .hide-m { display:none; } }
+.chip { font-size:.72rem; padding:0 8px; border-radius:99px; background:var(--idle-soft); color:var(--idle); white-space:nowrap; display:inline-block; }
+.chip.good { background:var(--good-soft); color:var(--good); } .chip.warn { background:var(--warn-soft); color:var(--warn); }
+.empty { padding:28px; text-align:center; color:var(--muted); }
+dialog { border:1px solid var(--line); border-radius:12px; background:var(--surface); color:var(--fg); width:min(640px,calc(100vw - 24px)); padding:16px; max-height:92vh; overflow:auto; }
+dialog::backdrop { background:rgba(0,0,0,.4); }
+.form { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .form .full { grid-column:1/-1; }
+@media (max-width:560px) { .form { grid-template-columns:1fr; } }
+.actions { display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; margin-top:14px; }
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section id="login" class="card login" hidden>
+    <h1>衣櫥管理</h1>
+    <div class="hint">這是私人資料，請用你的帳號登入。</div>
+    <label>Email<input class="in" id="email" type="email" autocomplete="username"></label>
+    <label>密碼（至少 6 個字元）<input class="in" id="password" type="password" autocomplete="current-password"></label>
+    <button class="btn primary" id="signin" type="button">登入</button>
+    <button class="btn" id="signup" type="button">第一次使用：建立帳號</button>
+    <div class="msg" id="login-msg" role="status"></div>
+  </section>
+
+  <section id="app" hidden>
+    <div class="head">
+      <div><h1>衣櫥管理</h1><div class="hint" id="who"></div></div>
+      <div style="display:flex;gap:8px"><button class="btn primary" id="add" type="button">＋ 新增衣服</button><button class="btn" id="signout" type="button">登出</button></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="filters">
+      <input class="in" id="q" type="search" placeholder="搜尋款名、品牌、ID、備註">
+      <select class="in" id="f-status"><option value="">到貨狀態：全部</option></select>
+      <select class="in" id="f-cat"><option value="">類型：全部</option></select>
+      <select class="in" id="f-tag"><option value="">整理標籤：全部</option></select>
+    </div>
+    <div class="card" id="list"><div class="empty">載入中…</div></div>
+  </section>
+</div>
+
+<dialog id="dlg">
+  <h2 id="dlg-title">衣服資料</h2>
+  <form id="form" class="form">
+    <label>ID<input class="in" id="x-id" readonly></label>
+    <label>款名（必填）<input class="in" id="x-name" required maxlength="100"></label>
+    <label>品牌／來源<input class="in" id="x-brand" list="dl-brand"></label>
+    <label>購入方式<input class="in" id="x-purchase_type" list="dl-purchase_type"></label>
+    <label>尺寸<input class="in" id="x-size" list="dl-size"></label>
+    <label>類型<input class="in" id="x-category" list="dl-category"></label>
+    <label>配件<input class="in" id="x-accessories"></label>
+    <label>衣況<input class="in" id="x-condition" list="dl-condition"></label>
+    <label>到貨狀態<input class="in" id="x-arrival_status" list="dl-arrival_status"></label>
+    <label>整理標籤<input class="in" id="x-tag" list="dl-tag"></label>
+    <label>數量<input class="in" id="x-quantity" type="number" min="0" step="1"></label>
+    <label>購入價格<input class="in" id="x-purchase_price" type="number" min="0" step="any"></label>
+    <label>預計販售價<input class="in" id="x-list_price" type="number" min="0" step="any"></label>
+    <label>實際售價<input class="in" id="x-sold_price" type="number" min="0" step="any"></label>
+    <label>購入日期<input class="in" id="x-purchase_date" type="date"></label>
+    <label>售出日期<input class="in" id="x-sold_date" type="date"></label>
+    <label class="full">官方照連結<input class="in" id="x-official_photo_url" type="url"></label>
+    <label class="full">實拍照連結<input class="in" id="x-real_photo_url" type="url"></label>
+    <label class="full">備註<textarea class="in" id="x-note"></textarea></label>
+    <div class="full msg" id="form-msg" role="status"></div>
+    <div class="full actions">
+      <button class="btn danger" type="button" id="del">刪除</button>
+      <span style="display:flex;gap:8px"><button class="btn" type="button" id="cancel">取消</button><button class="btn primary" type="submit" id="save">儲存</button></span>
+    </div>
+  </form>
+</dialog>
+<datalist id="dl-brand"></datalist><datalist id="dl-purchase_type"></datalist><datalist id="dl-size"></datalist><datalist id="dl-category"></datalist><datalist id="dl-condition"></datalist><datalist id="dl-arrival_status"></datalist><datalist id="dl-tag"></datalist>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// 只放公開用的 Publishable key；資料是否能被看見，由資料庫的 RLS 規則（只有你的 email 登入後）決定
+const sb = createClient('https://ckpdvemrwxgcyvyhmjtf.supabase.co', 'sb_publishable_4xogIUHvIZyo17t-kiJQkw_PuXuir9E');
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c]);
+const money = (n) => n == null ? '—' : '$' + Number(n).toLocaleString('en-US');
+const TEXT = ['brand','purchase_type','size','category','accessories','condition','arrival_status','tag','official_photo_url','real_photo_url','note'];
+const NUM = ['quantity','purchase_price','list_price','sold_price'];
+const DATE = ['purchase_date','sold_date'];
+let items = [], editingId = null, isNew = false;
+
+function show(session) {
+  $('#login').hidden = !!session; $('#app').hidden = !session;
+  if (session) { $('#who').textContent = session.user.email; load(); }
+}
+function setMsg(el, text, kind) { el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+$('#signin').onclick = async () => {
+  setMsg($('#login-msg'), '登入中…');
+  const { error } = await sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#password').value });
+  setMsg($('#login-msg'), error ? '登入失敗：' + error.message : '', 'err');
+};
+$('#signup').onclick = async () => {
+  setMsg($('#login-msg'), '建立中…');
+  const { data, error } = await sb.auth.signUp({ email: $('#email').value.trim(), password: $('#password').value });
+  if (error) return setMsg($('#login-msg'), '建立失敗：' + error.message, 'err');
+  setMsg($('#login-msg'), data.session ? '' : '已寄出確認信，請到信箱點確認連結，再回來登入。', 'ok');
+};
+$('#signout').onclick = () => sb.auth.signOut();
+sb.auth.onAuthStateChange((_e, session) => show(session));
+sb.auth.getSession().then(({ data }) => show(data.session));
+
+async function load() {
+  const { data, error } = await sb.from('wardrobe_items').select('*').order('id');
+  if (error) { $('#list').innerHTML = '<div class="empty">讀取失敗：' + esc(error.message) + '</div>'; return; }
+  items = data;
+  fillOptions(); render();
+}
+function uniq(k) { return [...new Set(items.map((i) => i[k]).filter(Boolean))].sort(); }
+function fillOptions() {
+  for (const [id, k, label] of [['f-status','arrival_status','到貨狀態'], ['f-cat','category','類型'], ['f-tag','tag','整理標籤']]) {
+    const cur = $('#' + id).value;
+    $('#' + id).innerHTML = '<option value="">' + label + '：全部</option>' + uniq(k).map((v) => '<option>' + esc(v) + '</option>').join('');
+    $('#' + id).value = cur;
+  }
+  for (const k of ['brand','purchase_type','size','category','condition','arrival_status','tag'])
+    $('#dl-' + k).innerHTML = uniq(k).map((v) => '<option value="' + esc(v) + '">').join('');
+}
+function render() {
+  const q = $('#q').value.trim().toLowerCase(), st = $('#f-status').value, ct = $('#f-cat').value, tg = $('#f-tag').value;
+  const rows = items.filter((i) => (!st || i.arrival_status === st) && (!ct || i.category === ct) && (!tg || i.tag === tg) &&
+    (!q || [i.id, i.name, i.brand, i.note].join(' ').toLowerCase().includes(q)));
+  const sum = (k) => rows.reduce((a, i) => a + (Number(i[k]) || 0), 0);
+  $('#stats').innerHTML = [['件數', rows.length], ['購入總額', money(sum('purchase_price'))], ['預計售價總額', money(sum('list_price'))], ['已售出', rows.filter((i) => i.sold_price != null).length]]
+    .map(([l, v]) => '<div class="stat"><b>' + v + '</b><span>' + l + '</span></div>').join('');
+  $('#list').innerHTML = rows.length ? rows.map((i) =>
+    '<div class="row" data-id="' + esc(i.id) + '"><div class="hint">' + esc(i.id) + '</div>' +
+    '<div><div class="t">' + esc(i.name) + '</div><div class="sub">' + esc([i.brand, i.size, i.category, i.condition].filter(Boolean).join('・')) + '</div></div>' +
+    '<div class="hide-m"><span class="chip' + (i.sold_price != null ? ' good' : i.arrival_status === '預購' ? ' warn' : '') + '">' + esc(i.sold_price != null ? '已售出' : i.arrival_status || '—') + '</span>' + (i.tag ? '<div class="sub">' + esc(i.tag) + '</div>' : '') + '</div>' +
+    '<div class="num hide-m"><div class="sub">購入</div>' + money(i.purchase_price) + '</div>' +
+    '<div class="num"><div class="sub">預計</div>' + money(i.list_price) + '</div></div>').join('') : '<div class="empty">沒有符合的衣服</div>';
+}
+for (const id of ['#q', '#f-status', '#f-cat', '#f-tag']) $(id).addEventListener('input', render);
+$('#list').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (r) openForm(items.find((i) => i.id === r.dataset.id)); });
+
+function nextId() {
+  const max = items.reduce((m, i) => Math.max(m, parseInt(String(i.id).replace(/\D/g, ''), 10) || 0), 0);
+  return 'A' + String(max + 1).padStart(5, '0');
+}
+function openForm(it) {
+  isNew = !it; editingId = it ? it.id : nextId();
+  const v = it || { quantity: 1 };
+  $('#dlg-title').textContent = isNew ? '新增衣服' : '編輯衣服';
+  $('#x-id').value = editingId; $('#x-name').value = v.name || '';
+  for (const k of [...TEXT, ...NUM, ...DATE]) $('#x-' + k).value = v[k] ?? '';
+  $('#del').hidden = isNew; setMsg($('#form-msg'), '');
+  $('#dlg').showModal();
+}
+$('#add').onclick = () => openForm(null);
+$('#cancel').onclick = () => $('#dlg').close();
+
+$('#form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const row = { id: editingId, name: $('#x-name').value.trim(), updated_at: new Date().toISOString() };
+  for (const k of TEXT) row[k] = $('#x-' + k).value.trim();
+  for (const k of NUM) { const s = $('#x-' + k).value; row[k] = s === '' ? (k === 'quantity' ? 1 : null) : Number(s); }
+  for (const k of DATE) row[k] = $('#x-' + k).value || null;
+  $('#save').disabled = true;
+  const { error } = isNew ? await sb.from('wardrobe_items').insert(row) : await sb.from('wardrobe_items').update(row).eq('id', editingId);
+  $('#save').disabled = false;
+  if (error) return setMsg($('#form-msg'), '儲存失敗：' + error.message, 'err');
+  $('#dlg').close(); load();
+});
+$('#del').onclick = async () => {
+  if (!confirm('確定要刪除「' + $('#x-name').value + '」嗎？刪除後無法復原。')) return;
+  const { error } = await sb.from('wardrobe_items').delete().eq('id', editingId);
+  if (error) return setMsg($('#form-msg'), '刪除失敗：' + error.message, 'err');
+  $('#dlg').close(); load();
+};
+</script>
+</body>
+</html>
