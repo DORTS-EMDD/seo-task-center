@@ -144,7 +144,51 @@ table.m thead th { color: var(--muted); font-weight: 500; border-top: 0; }
     </section>
     <aside class="card panel" id="panel" hidden></aside>
   </div>
+
+  <section class="card" style="margin-top:16px" aria-labelledby="notes-h">
+    <div class="list-head"><h2 id="notes-h">任務筆記（Supabase）</h2><span class="hint" id="notes-d">載入中…</span></div>
+    <form class="form" id="note-form" style="margin:14px">
+      <label>你的名字（選填）<input class="in" id="note-author" maxlength="40"></label>
+      <label>筆記內容<textarea class="in" id="note-content" maxlength="500" required placeholder="例如：test"></textarea></label>
+      <button class="btn primary" type="submit" id="note-submit">新增筆記</button>
+      <div class="hint" id="note-msg" role="status"></div>
+    </form>
+    <div id="notes-list"></div>
+  </section>
 </div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// 只放公開用的 Publishable key；資料安全由資料庫的 RLS 規則把關
+const sb = createClient('https://ckpdvemrwxgcyvyhmjtf.supabase.co', 'sb_publishable_4xogIUHvIZyo17t-kiJQkw_PuXuir9E');
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+async function loadNotes() {
+  const { data, error } = await sb.from('seo_notes').select('*').order('created_at', { ascending: false }).limit(50);
+  if (error) { $('#notes-d').textContent = '讀取失敗：' + error.message; return; }
+  $('#notes-d').textContent = '共 ' + data.length + ' 筆（最多顯示 50 筆）';
+  $('#notes-list').innerHTML = data.length
+    ? data.map((n) => '<div class="row" style="grid-template-columns:minmax(0,1fr) 170px;cursor:default"><div class="t">' + esc(n.content) +
+        '<div class="sub"><span>' + esc(n.author || '匿名') + '</span></div></div><div class="due">' + new Date(n.created_at).toLocaleString('zh-TW') + '</div></div>').join('')
+    : '<div class="empty">還沒有筆記</div>';
+}
+
+$('#note-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const content = $('#note-content').value.trim();
+  if (!content) return;
+  $('#note-submit').disabled = true;
+  const { error } = await sb.from('seo_notes').insert({ author: $('#note-author').value.trim(), content });
+  $('#note-submit').disabled = false;
+  if (error) { $('#note-msg').textContent = '新增失敗：' + error.message; return; }
+  $('#note-msg').textContent = '已新增';
+  $('#note-content').value = '';
+  loadNotes();
+});
+
+loadNotes();
+</script>
 
 <script>
 (function () {
